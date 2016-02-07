@@ -2,6 +2,10 @@
 
 Prevent Razer Leviathan Soundbar auto turn off.
 
+## Description
+
+Plays an Audio File every 29 Minutes.
+
 ## Requirements
 
 * Windows Operating System
@@ -9,7 +13,13 @@ Prevent Razer Leviathan Soundbar auto turn off.
 
 ## Supported Operating Systems
 
+* Windows 7
+* Windows 8
+* Windows 8.1
 * Windows 10
+* Windows Server 2012
+* Windows Server 2012 R2
+* Windows Server 2016 Technical Preview
 
 ## Installation
 
@@ -17,7 +27,7 @@ Extract the Archive and put the Folder to your desired Location.
 
 Run the Install Script.
 
-### Razer Leviathan Event
+### Adding the Razer Leviathan Taskplaner Event
 
 If the ExecutionPolicy from PowerShell is Restricted run:
 
@@ -31,7 +41,7 @@ With PowerShell and configured ExecutionPolicy run:
 
 Run the Removal Script.
 
-### Razer Leviathan Event
+### Removing the Razer Leviathan Taskplaner Event
 
 If the ExecutionPolicy from PowerShell is Restricted run:
 

@@ -1,10 +1,8 @@
-if (-not ((Get-WmiObject -Class Win32_OperatingSystem).Caption -match "Windows 10")) {
-    Show-Balloon -TipTitle "Razer Leviathan" -TipText "Ihr Betriebssystem ist nicht Microsoft Windows 10." -TipIcon Error
-    $Result = [System.Windows.Forms.MessageBox]::Show(
-        "Ihr Betriebssystem ist nicht Microsoft Windows 10.", "Razer Leviathan", 0,
-        [System.Windows.Forms.MessageBoxIcon]::Error
-    )
-    break
+if ($PSVersionTable.PSVersion.Major -lt 3) {
+    [string] $PSScriptRoot = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+}
+if ($PSVersionTable.PSVersion.Major -lt 3) {
+    [string] $PSCommandPath = $MyInvocation.MyCommand.Definition
 }
 
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
@@ -91,8 +89,17 @@ function Show-Balloon {
 
 if ($args.Length -gt 0) {
     if ($args[0].Contains("remove")) {
-        if (Get-ScheduledTask -TaskName $TaskName -TaskPath "\" -ErrorAction SilentlyContinue) {
-            Unregister-ScheduledTask -TaskName $TaskName -TaskPath "\" -Confirm:$False
+        if (Get-Command -Name Get-ScheduledTask -ErrorAction SilentlyContinue) {
+            if (Get-ScheduledTask -TaskName $TaskName -TaskPath "\" -ErrorAction SilentlyContinue) {
+                Unregister-ScheduledTask -TaskName $TaskName -TaskPath "\" -Confirm:$False
+            }
+        } else {
+            Write-Warning -Message "Get-ScheduledTask not supported, using Schtasks."
+            $Query = schtasks /Query /TN "\$TaskName" | Out-String
+            if ($Query.Contains($TaskName)) {
+                [array] $ArgumentList = @("/Delete", "/TN `"\$TaskName`"", "/F")
+                Start-Process -FilePath "schtasks" -ArgumentList $ArgumentList -WindowStyle Hidden
+            }
         }
         Show-Balloon -TipTitle "Razer Leviathan" -TipText "Razer Leviathan Event entfernt." -TipIcon Info
         $Result = [System.Windows.Forms.MessageBox]::Show(
@@ -101,16 +108,32 @@ if ($args.Length -gt 0) {
         )
     }
 } else {
-    if (Get-ScheduledTask -TaskName $TaskName -TaskPath "\" -ErrorAction SilentlyContinue) {
-        Write-Warning -Message "Task already exist!"
+    if (Get-Command -Name Get-ScheduledTask -ErrorAction SilentlyContinue) {
+        if (Get-ScheduledTask -TaskName $TaskName -TaskPath "\" -ErrorAction SilentlyContinue) {
+            Write-Warning -Message "Task already exist!"
+        } else {
+            $TaskTemplate = $TaskTemplate -replace "<Description>(.*)</Description>", "<Description>$TaskDescription</Description>"
+            $TaskTemplate = $TaskTemplate -replace "<URI>(.*)</URI>", "<URI>\$TaskName</URI>"
+            $TaskTemplate = $TaskTemplate -replace "<Interval>(.*)</Interval>", "<Interval>$TaskInterval</Interval>"
+            $TaskTemplate = $TaskTemplate -replace "<Command>(.*)</Command>", "<Command>$TaskCommand</Command>"
+            Set-Content -Path $TaskFile -Value $TaskTemplate
+            Start-Process -FilePath "schtasks" -ArgumentList ("/Create", "/TN `"\$TaskName`"", "/XML `"$PSScriptRoot\$TaskName.xml`"") -WindowStyle Hidden -Wait
+            Remove-Item -Path $TaskFile
+        }
     } else {
-        $TaskTemplate = $TaskTemplate -replace "<Description>(.*)</Description>", "<Description>$TaskDescription</Description>"
-        $TaskTemplate = $TaskTemplate -replace "<URI>(.*)</URI>", "<URI>\$TaskName</URI>"
-        $TaskTemplate = $TaskTemplate -replace "<Interval>(.*)</Interval>", "<Interval>$TaskInterval</Interval>"
-        $TaskTemplate = $TaskTemplate -replace "<Command>(.*)</Command>", "<Command>$TaskCommand</Command>"
-        Set-Content -Path $TaskFile -Value $TaskTemplate
-        Start-Process -FilePath "schtasks" -ArgumentList ("/Create", "/TN `"\$TaskName`"", "/XML `"$PSScriptRoot\$TaskName.xml`"") -WindowStyle Hidden -Wait
-        Remove-Item -Path $TaskFile
+        Write-Warning -Message "Get-ScheduledTask not supported, using Schtasks."
+        $Query = schtasks /Query /TN "\$TaskName" | Out-String
+        if ($Query.Contains($TaskName)) {
+            Write-Warning -Message "Task already exist!"
+        } else {
+            $TaskTemplate = $TaskTemplate -replace "<Description>(.*)</Description>", "<Description>$TaskDescription</Description>"
+            $TaskTemplate = $TaskTemplate -replace "<URI>(.*)</URI>", "<URI>\$TaskName</URI>"
+            $TaskTemplate = $TaskTemplate -replace "<Interval>(.*)</Interval>", "<Interval>$TaskInterval</Interval>"
+            $TaskTemplate = $TaskTemplate -replace "<Command>(.*)</Command>", "<Command>$TaskCommand</Command>"
+            Set-Content -Path $TaskFile -Value $TaskTemplate
+            Start-Process -FilePath "schtasks" -ArgumentList ("/Create", "/TN `"\$TaskName`"", "/XML `"$PSScriptRoot\$TaskName.xml`"") -WindowStyle Hidden -Wait
+            Remove-Item -Path $TaskFile
+        }
     }
     Show-Balloon -TipTitle "Razer Leviathan" -TipText "Razer Leviathan Event installiert." -TipIcon Info
     $Result = [System.Windows.Forms.MessageBox]::Show(
